@@ -1,0 +1,125 @@
+:root {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1f1f1f;
+  background: transparent;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
+}
+
+button {
+  font: inherit;
+}
+
+.pet-shell {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+.pet-shell:active {
+  cursor: grabbing;
+}
+
+.pet-hit-area {
+  width: min(92vw, calc(210px * var(--pet-scale, 1)));
+  height: min(92vh, calc(210px * var(--pet-scale, 1)));
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-app-region: no-drag;
+}
+
+.pet-hit-area:focus-visible {
+  filter: drop-shadow(0 0 0.5rem rgba(91, 141, 239, 0.75));
+}
+
+.pet-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 16px 12px rgba(44, 32, 18, 0.2));
+}
+
+.context-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: transparent;
+  cursor: default;
+}
+
+.pet-context-menu {
+  position: fixed;
+  z-index: 11;
+  width: 104px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(28, 28, 28, 0.28);
+  box-shadow: 0 12px 28px rgba(30, 24, 18, 0.18);
+  backdrop-filter: blur(12px);
+  cursor: default;
+}
+
+.context-menu-item {
+  width: 100%;
+  height: 24px;
+  display: grid;
+  grid-template-columns: 13px 1fr;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  text-align: left;
+  cursor: default;
+}
+
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  outline: 0;
+}
+
+.context-menu-item.active-mode {
+  background: rgba(91, 141, 239, 0.28);
+}
+
+.mode-check {
+  width: 13px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}

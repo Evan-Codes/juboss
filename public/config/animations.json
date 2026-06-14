@@ -1,0 +1,56 @@
+{
+  "defaultState": "idle",
+  "defaultMode": "leisure",
+  "assetVersion": 4,
+  "sleepAfterMs": 30000,
+  "leisureSleepAfterMs": 15000,
+  "movement": {
+    "enabled": true,
+    "speedPxPerSecond": 55,
+    "bottomMarginPx": 12,
+    "updateMs": 33,
+    "pauseInStates": ["sleep", "click"]
+  },
+  "states": {
+    "idle": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Idle cat",
+      "loop": true
+    },
+    "look": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat looking at pointer",
+      "loop": true
+    },
+    "click": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Clicked cat",
+      "loop": true
+    },
+    "sleep": {
+      "src": "/assets/cat/sleep_frames/frame_001.png",
+      "framePattern": "/assets/cat/sleep_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Sleeping cat",
+      "loop": true
+    },
+    "play": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat playing",
+      "loop": true
+    }
+  }
+}
