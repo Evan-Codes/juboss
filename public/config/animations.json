@@ -1,6 +1,6 @@
 {
   "defaultState": "idle",
-  "defaultMode": "patrol",
+  "defaultMode": "leisure",
   "assetVersion": 4,
   "sleepAfterMs": 30000,
   "leisureSleepAfterMs": 15000,
@@ -10,6 +10,16 @@
     "bottomMarginPx": 12,
     "updateMs": 33,
     "pauseInStates": ["sleep", "click"]
+  },
+  "interaction": {
+    "pollMs": 80,
+    "approachRadiusPx": 180,
+    "hoverDelayMs": 900,
+    "fastPointerSpeed": 1100,
+    "actionLockMs": 900,
+    "clickWindowMs": 1400,
+    "mediumClickCount": 4,
+    "heavyClickCount": 7
   },
   "states": {
     "idle": {
@@ -50,6 +60,134 @@
       "frameCount": 100,
       "fps": 10,
       "alt": "Cat playing",
+      "loop": true
+    },
+    "look_mouse": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat looking toward the pointer",
+      "loop": true
+    },
+    "follow_mouse": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat following the pointer",
+      "loop": true
+    },
+    "observe": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat observing closely",
+      "loop": true
+    },
+    "paw_probe": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 12,
+      "alt": "Cat testing with a paw",
+      "loop": true
+    },
+    "head_tilt": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat tilting its head",
+      "loop": true
+    },
+    "pounce": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 14,
+      "alt": "Cat pouncing",
+      "loop": true
+    },
+    "chase": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 14,
+      "alt": "Cat chasing the pointer",
+      "loop": true
+    },
+    "rapid_swat": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 16,
+      "alt": "Cat swatting repeatedly",
+      "loop": true
+    },
+    "happy_squint": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat squinting happily",
+      "loop": true
+    },
+    "purr": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat purring",
+      "loop": true
+    },
+    "nuzzle": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 11,
+      "alt": "Cat nuzzling",
+      "loop": true
+    },
+    "belly": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 10,
+      "alt": "Cat showing its belly",
+      "loop": true
+    },
+    "tail_annoyed": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 12,
+      "alt": "Cat flicking its tail",
+      "loop": true
+    },
+    "meow": {
+      "src": "/assets/cat/click_frames/frame_001.png",
+      "framePattern": "/assets/cat/click_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 12,
+      "alt": "Cat meowing",
+      "loop": true
+    },
+    "paw_back": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 15,
+      "alt": "Cat swatting back",
+      "loop": true
+    },
+    "fur_puff": {
+      "src": "/assets/cat/play_frames/frame_001.png",
+      "framePattern": "/assets/cat/play_frames/frame_{index}.png",
+      "frameCount": 100,
+      "fps": 13,
+      "alt": "Cat puffing its fur",
       "loop": true
     }
   }

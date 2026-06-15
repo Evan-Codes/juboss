@@ -3,7 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-  import { currentMonitor, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
+  import { currentMonitor, cursorPosition, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
 
   type PetState = 'idle' | 'look' | 'click' | 'sleep' | string;
   type PetMode = 'leisure' | 'patrol' | 'interactive';
@@ -32,12 +32,22 @@
       updateMs: number;
       pauseInStates: PetState[];
     };
+    interaction?: {
+      pollMs: number;
+      approachRadiusPx: number;
+      hoverDelayMs: number;
+      fastPointerSpeed: number;
+      actionLockMs: number;
+      clickWindowMs: number;
+      mediumClickCount: number;
+      heavyClickCount: number;
+    };
     states: Record<PetState, AnimationItem>;
   };
 
   const fallbackConfig: AnimationConfig = {
     defaultState: 'idle',
-    defaultMode: 'patrol',
+    defaultMode: 'leisure',
     assetVersion: 4,
     sleepAfterMs: 30_000,
     leisureSleepAfterMs: 15_000,
@@ -47,6 +57,16 @@
       bottomMarginPx: 12,
       updateMs: 33,
       pauseInStates: ['sleep', 'click']
+    },
+    interaction: {
+      pollMs: 80,
+      approachRadiusPx: 180,
+      hoverDelayMs: 900,
+      fastPointerSpeed: 1100,
+      actionLockMs: 900,
+      clickWindowMs: 1400,
+      mediumClickCount: 4,
+      heavyClickCount: 7
     },
     states: {
       idle: {
@@ -89,7 +109,7 @@
   const dragThreshold = 6;
   const contextMenuWidth = 104;
   const contextMenuHeight = 86;
-  const scaleStep = 0.08;
+  const scaleStep = 0.02;
   const minPetScale = 0.5;
   const maxPetScale = 2;
 
@@ -125,7 +145,22 @@
   let activeFrameUrls = $state<string[]>([]);
   let petScale = $state(1);
   let baseWindowSize: { width: number; height: number } | null = null;
+  let resizeQueue = Promise.resolve();
+  let resizeCenter: { x: number; y: number } | null = null;
+  let resizeSession = 0;
+  let resizeCenterTimer: ReturnType<typeof setTimeout> | undefined;
   let leisureWakeClickTimer: ReturnType<typeof setTimeout> | undefined;
+  let interactionTimer: ReturnType<typeof setInterval> | undefined;
+  let interactionResetTimer: ReturnType<typeof setTimeout> | undefined;
+  let interactionHoverTimer: ReturnType<typeof setTimeout> | undefined;
+  let interactionPhase: 'away' | 'near' | 'inside' | 'hover' = 'away';
+  let interactionActionUntil = 0;
+  let interactionOffsetX = $state(0);
+  let interactionOffsetY = $state(0);
+  let lastCursorSample: { x: number; y: number; time: number } | null = null;
+  let interactiveClicks: number[] = [];
+
+  const interactiveDefaults = fallbackConfig.interaction!;
 
   let currentAnimation = $derived(
     config.states[currentState] ?? config.states[config.defaultState] ?? fallbackConfig.states.idle
@@ -155,6 +190,94 @@
     const nextAnimation = config.states[nextState];
     if (nextAnimation.durationMs && nextAnimation.nextState) {
       clickTimer = setTimeout(() => setPetState(nextAnimation.nextState as PetState), nextAnimation.durationMs);
+    }
+  }
+
+  function interactionSettings() {
+    return config.interaction ?? interactiveDefaults;
+  }
+
+  function playInteractiveAction(states: PetState[], durationMs = interactionSettings().actionLockMs) {
+    if (currentMode !== 'interactive') return;
+    const requestedState = states[Math.floor(Math.random() * states.length)];
+    const activeState = config.states[requestedState]
+      ? requestedState
+      : ['pounce', 'chase', 'rapid_swat', 'tail_annoyed', 'paw_back', 'fur_puff'].includes(requestedState)
+        ? 'play'
+        : 'click';
+    interactionActionUntil = performance.now() + durationMs;
+    setPetState(activeState);
+    if (interactionResetTimer) clearTimeout(interactionResetTimer);
+    interactionResetTimer = setTimeout(() => {
+      if (currentMode !== 'interactive') return;
+      interactionActionUntil = 0;
+      setPetState(interactionPhase === 'away' ? 'play' : config.states.look_mouse ? 'look_mouse' : 'look');
+    }, durationMs);
+    logDiagnostic('interactive-action', { action: requestedState, state: activeState, durationMs });
+  }
+
+  function setTrackingOffset(cursorX: number, cursorY: number, centerX: number, centerY: number) {
+    const dx = cursorX - centerX;
+    const dy = cursorY - centerY;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const strength = Math.min(10, distance * 0.055);
+    interactionOffsetX = (dx / distance) * strength;
+    interactionOffsetY = (dy / distance) * Math.min(7, strength);
+  }
+
+  async function sampleInteractivePointer() {
+    if (currentMode !== 'interactive' || isDragging || dragLocked) return;
+    const [cursor, position, size] = await Promise.all([
+      cursorPosition(),
+      appWindow.outerPosition(),
+      appWindow.outerSize()
+    ]);
+    if (currentMode !== 'interactive') return;
+
+    const now = performance.now();
+    const centerX = position.x + size.width / 2;
+    const centerY = position.y + size.height / 2;
+    const dx = Math.max(position.x - cursor.x, 0, cursor.x - (position.x + size.width));
+    const dy = Math.max(position.y - cursor.y, 0, cursor.y - (position.y + size.height));
+    const distanceToWindow = Math.hypot(dx, dy);
+    const inside = dx === 0 && dy === 0;
+    const near = distanceToWindow <= interactionSettings().approachRadiusPx;
+    const speed = lastCursorSample
+      ? (Math.hypot(cursor.x - lastCursorSample.x, cursor.y - lastCursorSample.y) * 1000) /
+        Math.max(1, now - lastCursorSample.time)
+      : 0;
+    lastCursorSample = { x: cursor.x, y: cursor.y, time: now };
+
+    if (near) setTrackingOffset(cursor.x, cursor.y, centerX, centerY);
+    else {
+      interactionOffsetX = 0;
+      interactionOffsetY = 0;
+    }
+
+    if (near && speed >= interactionSettings().fastPointerSpeed && now >= interactionActionUntil) {
+      playInteractiveAction(['pounce', 'chase', 'rapid_swat'], 1100);
+      return;
+    }
+
+    const nextPhase = inside ? 'inside' : near ? 'near' : 'away';
+    if (nextPhase === interactionPhase || now < interactionActionUntil) return;
+    interactionPhase = nextPhase;
+    if (interactionHoverTimer) clearTimeout(interactionHoverTimer);
+    interactionHoverTimer = undefined;
+
+    if (nextPhase === 'away') {
+      setPetState('play');
+      return;
+    }
+    const trackingState = nextPhase === 'near' ? 'look_mouse' : 'follow_mouse';
+    setPetState(config.states[trackingState] ? trackingState : 'look');
+    if (inside) {
+      interactionHoverTimer = setTimeout(() => {
+        if (currentMode === 'interactive' && interactionPhase === 'inside') {
+          interactionPhase = 'hover';
+          playInteractiveAction(['observe', 'paw_probe', 'head_tilt'], 1300);
+        }
+      }, interactionSettings().hoverDelayMs);
     }
   }
 
@@ -472,9 +595,7 @@
       }
     }
 
-    if (currentMode !== 'interactive') {
-      markActivity();
-    }
+    if (currentMode !== 'interactive') markActivity();
   }
 
   function handlePointerLeave(event: PointerEvent) {
@@ -520,21 +641,36 @@
 
   function handleClick(event: MouseEvent) {
     if (contextMenu) return;
-    if (currentMode === 'interactive') return;
     if (isDragging) return;
-    if (currentMode === 'leisure') {
-      if (currentState === 'sleep') {
-        if (leisureWakeClickTimer) clearTimeout(leisureWakeClickTimer);
-        if (event.detail === 1) {
-          leisureWakeClickTimer = setTimeout(() => {
-            setPetState('click');
-            clearSleepTimer();
-            leisureWakeClickTimer = undefined;
-          }, 220);
-        }
-        return;
+    if (currentMode === 'interactive') {
+      const now = performance.now();
+      const settings = interactionSettings();
+      interactiveClicks = interactiveClicks.filter((time) => now - time <= settings.clickWindowMs);
+      interactiveClicks.push(now);
+      const count = interactiveClicks.length;
+      if (count >= settings.heavyClickCount) {
+        playInteractiveAction(['paw_back', 'fur_puff'], 1600);
+        interactiveClicks = [];
+      } else if (count >= settings.mediumClickCount) {
+        playInteractiveAction(['meow'], 1300);
+      } else if (count >= 2) {
+        playInteractiveAction(['tail_annoyed'], 1000);
+      } else {
+        playInteractiveAction(['happy_squint', 'purr', 'nuzzle', 'belly'], 1200);
       }
-      clearSleepTimer();
+      return;
+    }
+    if (currentMode === 'leisure') {
+      if (leisureWakeClickTimer) clearTimeout(leisureWakeClickTimer);
+      leisureWakeClickTimer = undefined;
+      if (currentState !== 'sleep' || event.detail !== 1) return;
+
+      leisureWakeClickTimer = setTimeout(() => {
+        leisureWakeClickTimer = undefined;
+        if (currentMode !== 'leisure' || currentState !== 'sleep') return;
+        setPetState('click');
+        clearSleepTimer();
+      }, 220);
       return;
     }
     markActivity();
@@ -542,11 +678,14 @@
   }
 
   function handleDoubleClick(event: MouseEvent) {
-    if (currentMode === 'leisure' && currentState === 'sleep') {
-      event.preventDefault();
-      event.stopPropagation();
-      if (leisureWakeClickTimer) clearTimeout(leisureWakeClickTimer);
-      leisureWakeClickTimer = undefined;
+    if (currentMode !== 'leisure') return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (leisureWakeClickTimer) clearTimeout(leisureWakeClickTimer);
+    leisureWakeClickTimer = undefined;
+    if (currentState === 'click') {
+      setPetState('sleep');
+      clearSleepTimer();
     }
   }
 
@@ -555,22 +694,47 @@
     event.preventDefault();
     const direction = event.deltaY < 0 ? 1 : -1;
     petScale = Math.min(maxPetScale, Math.max(minPetScale, petScale + direction * scaleStep));
-    void resizeWindowToScale();
+    const targetScale = petScale;
+    const session = ++resizeSession;
+    if (resizeCenterTimer) clearTimeout(resizeCenterTimer);
+    resizeQueue = resizeQueue.then(() => resizeWindowToScale(targetScale)).finally(() => {
+      if (session !== resizeSession) return;
+      resizeCenterTimer = setTimeout(() => {
+        if (session === resizeSession) resizeCenter = null;
+        resizeCenterTimer = undefined;
+      }, 250);
+    });
     logDiagnostic('pet-scale-changed', { scale: petScale });
   }
 
-  async function resizeWindowToScale() {
+  async function resizeWindowToScale(targetScale: number) {
     if (!baseWindowSize) {
       const size = await appWindow.outerSize();
       baseWindowSize = { width: size.width, height: size.height };
     }
 
-    await appWindow.setSize(
-      new PhysicalSize(
-        Math.round(baseWindowSize.width * petScale),
-        Math.round(baseWindowSize.height * petScale)
-      )
-    );
+    try {
+      if (!resizeCenter) {
+        const [position, currentSize] = await Promise.all([appWindow.outerPosition(), appWindow.outerSize()]);
+        resizeCenter = {
+          x: position.x + currentSize.width / 2,
+          y: position.y + currentSize.height / 2
+        };
+      }
+      const width = Math.round(baseWindowSize.width * targetScale);
+      const height = Math.round(baseWindowSize.height * targetScale);
+
+      await appWindow.setSize(new PhysicalSize(width, height));
+      await appWindow.setPosition(
+        new PhysicalPosition(
+          Math.round(resizeCenter.x - width / 2),
+          Math.round(resizeCenter.y - height / 2)
+        )
+      );
+      await syncWalkPositionToWindow();
+    } catch (error) {
+      logDiagnostic('pet-scale-resize-failed', { scale: targetScale, error: String(error) });
+    }
   }
 
   function closeContextMenu() {
@@ -598,6 +762,10 @@
   function beginNativeDrag() {
     if (isDragging) return;
     closeContextMenu();
+    resizeCenter = null;
+    resizeSession += 1;
+    if (resizeCenterTimer) clearTimeout(resizeCenterTimer);
+    resizeCenterTimer = undefined;
     isDragging = true;
     movementEpoch += 1;
     scheduleDragRelease(800);
@@ -633,10 +801,11 @@
 
   async function getMovementBounds() {
     const scaleFactor = window.devicePixelRatio || 1;
-    const screenMinX = (window.screen.availLeft ?? 0) * scaleFactor;
-    const screenMinY = (window.screen.availTop ?? 0) * scaleFactor;
-    const screenWidth = window.screen.availWidth * scaleFactor;
-    const screenHeight = window.screen.availHeight * scaleFactor;
+    const screen = window.screen as Screen & { availLeft?: number; availTop?: number };
+    const screenMinX = (screen.availLeft ?? 0) * scaleFactor;
+    const screenMinY = (screen.availTop ?? 0) * scaleFactor;
+    const screenWidth = screen.availWidth * scaleFactor;
+    const screenHeight = screen.availHeight * scaleFactor;
     const windowWidth = window.innerWidth * scaleFactor;
     const windowHeight = window.innerHeight * scaleFactor;
 
@@ -735,10 +904,19 @@
 
     if (clickTimer) clearTimeout(clickTimer);
     if (sleepTimer) clearTimeout(sleepTimer);
+    if (interactionResetTimer) clearTimeout(interactionResetTimer);
+    if (interactionHoverTimer) clearTimeout(interactionHoverTimer);
+    interactionActionUntil = 0;
+    interactionPhase = 'away';
+    interactionOffsetX = 0;
+    interactionOffsetY = 0;
+    interactiveClicks = [];
+    lastCursorSample = null;
 
     if (nextMode === 'interactive') {
       setPetState('play');
       await syncWalkPositionToWindow();
+      void sampleInteractivePointer();
       return;
     }
 
@@ -831,6 +1009,11 @@
     movementTimer = setInterval(() => {
       void moveAlongDesktopBottom();
     }, config.movement.updateMs);
+    interactionTimer = setInterval(() => {
+      void sampleInteractivePointer().catch((error) => {
+        logDiagnostic('interactive-pointer-error', { error: String(error) });
+      });
+    }, interactionSettings().pollMs);
 
     return () => {
       disposed = true;
@@ -839,6 +1022,9 @@
       if (leisureWakeClickTimer) clearTimeout(leisureWakeClickTimer);
       if (movementTimer) clearInterval(movementTimer);
       if (dragReleaseTimer) clearTimeout(dragReleaseTimer);
+      if (interactionTimer) clearInterval(interactionTimer);
+      if (interactionResetTimer) clearTimeout(interactionResetTimer);
+      if (interactionHoverTimer) clearTimeout(interactionHoverTimer);
       stopFrameTimer();
       if (unlistenMode) unlistenMode();
       if (unlistenMoved) unlistenMoved();
@@ -849,8 +1035,9 @@
 <main class="pet-shell" aria-label="Desktop pet">
   <button
     class="pet-hit-area"
+    class:interactive-mode={currentMode === 'interactive'}
     aria-label="Juboss desktop pet"
-    style={`--pet-scale: ${petScale};`}
+    style={`--pet-scale: ${petScale}; --track-x: ${interactionOffsetX}px; --track-y: ${interactionOffsetY}px;`}
     oncontextmenu={handleContextMenu}
     onpointerenter={handlePointerEnter}
     onpointermove={handlePointerMove}

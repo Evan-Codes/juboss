@@ -66,6 +66,12 @@ button {
   -webkit-user-drag: none;
 }
 
+.pet-hit-area.interactive-mode .pet-media {
+  transform: translate3d(var(--track-x, 0), var(--track-y, 0), 0);
+  transition: transform 90ms linear;
+  will-change: transform;
+}
+
 .context-scrim {
   position: fixed;
   inset: 0;
