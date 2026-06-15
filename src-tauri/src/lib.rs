@@ -9,6 +9,7 @@ use tauri::{
 const MODE_LEISURE: &str = "mode_leisure";
 const MODE_PATROL: &str = "mode_patrol";
 const MODE_INTERACTIVE: &str = "mode_interactive";
+const APP_QUIT: &str = "app_quit";
 
 fn append_log(app: &AppHandle, message: &str) -> Result<String, String> {
     let log_dir = app
@@ -89,6 +90,7 @@ pub fn run() {
                 .build()?;
             let tray_menu = MenuBuilder::new(app)
                 .item(&mode_menu)
+                .text(APP_QUIT, "退出")
                 .build()?;
 
             TrayIconBuilder::with_id("pet-mode")
@@ -101,6 +103,11 @@ pub fn run() {
                 .menu(&tray_menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| {
+                    if event.id().as_ref() == APP_QUIT {
+                        app.exit(0);
+                        return;
+                    }
+
                     let mode = match event.id().as_ref() {
                         MODE_LEISURE => Some("leisure"),
                         MODE_PATROL => Some("patrol"),

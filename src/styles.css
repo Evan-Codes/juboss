@@ -64,7 +64,6 @@ button {
   background-color: rgba(0, 0, 0, 0);
   pointer-events: none;
   -webkit-user-drag: none;
-  filter: drop-shadow(0 16px 12px rgba(44, 32, 18, 0.2));
 }
 
 .context-scrim {

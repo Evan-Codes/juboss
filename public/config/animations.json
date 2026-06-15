@@ -1,6 +1,6 @@
 {
   "defaultState": "idle",
-  "defaultMode": "leisure",
+  "defaultMode": "patrol",
   "assetVersion": 4,
   "sleepAfterMs": 30000,
   "leisureSleepAfterMs": 15000,

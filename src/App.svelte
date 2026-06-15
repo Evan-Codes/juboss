@@ -37,7 +37,7 @@
 
   const fallbackConfig: AnimationConfig = {
     defaultState: 'idle',
-    defaultMode: 'leisure',
+    defaultMode: 'patrol',
     assetVersion: 4,
     sleepAfterMs: 30_000,
     leisureSleepAfterMs: 15_000,
@@ -632,6 +632,30 @@
   }
 
   async function getMovementBounds() {
+    const scaleFactor = window.devicePixelRatio || 1;
+    const screenMinX = (window.screen.availLeft ?? 0) * scaleFactor;
+    const screenMinY = (window.screen.availTop ?? 0) * scaleFactor;
+    const screenWidth = window.screen.availWidth * scaleFactor;
+    const screenHeight = window.screen.availHeight * scaleFactor;
+    const windowWidth = window.innerWidth * scaleFactor;
+    const windowHeight = window.innerHeight * scaleFactor;
+
+    if (screenWidth > 0 && screenHeight > 0 && windowWidth > 0 && windowHeight > 0) {
+      const minX = screenMinX;
+      const maxX = screenMinX + screenWidth - windowWidth;
+      const minY = screenMinY;
+      const maxY = screenMinY + screenHeight - windowHeight;
+      const bottomY = screenMinY + screenHeight - windowHeight - config.movement.bottomMarginPx * scaleFactor;
+
+      return {
+        minX,
+        maxX: Math.max(minX, maxX),
+        minY,
+        maxY: Math.max(minY, maxY),
+        bottomY: Math.min(Math.max(bottomY, minY), Math.max(minY, maxY))
+      };
+    }
+
     const monitor = (await currentMonitor()) ?? (await primaryMonitor());
     if (!monitor) return null;
 
@@ -729,7 +753,15 @@
     resetSleepTimer();
 
     if (nextMode === 'patrol') {
-      await syncWalkPositionToWindow();
+      const bounds = await getMovementBounds();
+      if (bounds) {
+        const position = await appWindow.outerPosition();
+        walkX = Math.min(bounds.maxX, Math.max(bounds.minX, position.x));
+        walkY = bounds.bottomY;
+        await appWindow.setPosition(new PhysicalPosition(Math.round(walkX), Math.round(walkY)));
+      } else {
+        await syncWalkPositionToWindow();
+      }
       return;
     }
 
